@@ -1,4 +1,5 @@
 ---
 deployment:
   tasks:
+    - /bin/mkdir -p /home/royalpat/public_html/branjan.com.ng/assistant/
     - /bin/cp -R /home/royalpat/repositories/ai_assistant/* /home/royalpat/public_html/branjan.com.ng/assistant/
