@@ -1,4 +1,26 @@
+# Secrets / credentials
 config.php
-schema.sql
-*.sql
 .env
+
+# Database dumps
+*.sql
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# PHP
+vendor/
+composer.lock
+*.log
+
