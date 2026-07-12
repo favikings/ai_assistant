@@ -221,9 +221,26 @@ function call_gemini($contents, $system_instruction, $tools = null, $tool_respon
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
         CURLOPT_POSTFIELDS => json_encode($body),
+        CURLOPT_TIMEOUT => 30,
     ]);
-    $response = json_decode(curl_exec($ch), true);
+    $raw = curl_exec($ch);
+    $curlError = curl_error($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+
+    if ($raw === false) {
+        error_log('Gemini curl error: ' . $curlError);
+        return ['error' => ['message' => 'Curl failed: ' . $curlError]];
+    }
+
+    $response = json_decode($raw, true);
+
+    if ($httpCode !== 200) {
+        $errMsg = $response['error']['message'] ?? 'HTTP ' . $httpCode;
+        error_log('Gemini API error (' . $httpCode . '): ' . $errMsg);
+        return ['error' => ['message' => $errMsg]];
+    }
+
     return $response;
 }
 
@@ -351,6 +368,11 @@ function execute_tool($name, $args) {
 $max_turns = 5;
 for ($turn = 0; $turn < $max_turns; $turn++) {
     $response = call_gemini($contents, $system_instruction, $tools);
+
+    if (isset($response['error'])) {
+        $reply = 'API error: ' . ($response['error']['message'] ?? json_encode($response['error']));
+        break;
+    }
 
     if (!isset($response['candidates'][0]['content']['parts'])) {
         $reply = 'I had trouble processing that. Could you try again?';
