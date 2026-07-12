@@ -1,0 +1,4 @@
+config.php
+schema.sql
+*.sql
+.env
