@@ -251,8 +251,9 @@ function call_groq($messages, $tools = null) {
 
     if ($httpCode !== 200) {
         $errMsg = $response['error']['message'] ?? 'HTTP ' . $httpCode;
-        error_log('Groq API error (' . $httpCode . '): ' . $errMsg);
-        return ['error' => ['message' => $errMsg]];
+        $failedGen = $response['failed_generation'] ?? null;
+        error_log('Groq API error (' . $httpCode . '): ' . $errMsg . ($failedGen ? ' | failed_generation: ' . $failedGen : ''));
+        return ['error' => ['message' => $errMsg, 'failed_generation' => $failedGen]];
     }
 
     return $response;
@@ -385,6 +386,9 @@ for ($turn = 0; $turn < $max_turns; $turn++) {
 
     if (isset($response['error'])) {
         $reply = 'API error: ' . ($response['error']['message'] ?? json_encode($response['error']));
+        if (!empty($response['error']['failed_generation'])) {
+            $reply .= ' | Detail: ' . $response['error']['failed_generation'];
+        }
         break;
     }
 
@@ -403,12 +407,17 @@ for ($turn = 0; $turn < $max_turns; $turn++) {
     }
 
     // Add assistant message with tool calls to conversation
-    $messages[] = $assistant_message;
+    $assistant_for_history = $assistant_message;
+    if (empty($assistant_for_history['content'])) {
+        $assistant_for_history['content'] = '';
+    }
+    $messages[] = $assistant_for_history;
 
     // Execute each tool call and add results
     foreach ($assistant_message['tool_calls'] as $tc) {
         $function_name = $tc['function']['name'];
         $function_args = json_decode($tc['function']['arguments'], true) ?? [];
+        if (!is_array($function_args)) $function_args = [];
         $result = execute_tool($function_name, $function_args);
 
         $messages[] = [
