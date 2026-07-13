@@ -7,7 +7,7 @@ define('DB_PASS', 'your_db_password');
 
 // === Groq API (OpenAI-compatible) ===
 define('GROQ_API_KEY', 'YOUR_GROQ_API_KEY_HERE');
-define('GROQ_MODEL', 'llama-3.3-70b-versatile');
+define('GROQ_MODEL', 'llama-3.1-8b-instant');
 define('GROQ_API_URL', 'https://api.groq.com/openai/v1/chat/completions');
 
 // === Login ===

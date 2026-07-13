@@ -212,7 +212,7 @@ foreach ($history as $msg) {
     ];
 }
 
-// Call Groq API (OpenAI-compatible)
+// Call Groq API (OpenAI-compatible) with retry on 429
 function call_groq($messages, $tools = null) {
     $body = [
         'model' => GROQ_MODEL,
@@ -226,37 +226,53 @@ function call_groq($messages, $tools = null) {
         $body['tool_choice'] = 'auto';
     }
 
-    $ch = curl_init(GROQ_API_URL);
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . GROQ_API_KEY,
-        ],
-        CURLOPT_POSTFIELDS => json_encode($body),
-        CURLOPT_TIMEOUT => 30,
-    ]);
-    $raw = curl_exec($ch);
-    $curlError = curl_error($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    $max_retries = 2;
+    for ($attempt = 0; $attempt <= $max_retries; $attempt++) {
+        $ch = curl_init(GROQ_API_URL);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . GROQ_API_KEY,
+            ],
+            CURLOPT_POSTFIELDS => json_encode($body),
+            CURLOPT_TIMEOUT => 30,
+        ]);
+        $raw = curl_exec($ch);
+        $curlError = curl_error($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-    if ($raw === false) {
-        error_log('Groq curl error: ' . $curlError);
-        return ['error' => ['message' => 'Curl failed: ' . $curlError]];
+        if ($raw === false) {
+            error_log('Groq curl error: ' . $curlError);
+            return ['error' => ['message' => 'Curl failed: ' . $curlError]];
+        }
+
+        $response = json_decode($raw, true);
+
+        if ($httpCode === 429 && $attempt < $max_retries) {
+            $errMsg = $response['error']['message'] ?? '';
+            $wait = 5;
+            if (preg_match('/try again in ([\d.]+)s/', $errMsg, $m)) {
+                $wait = (float) $m[1] + 1;
+            }
+            error_log("Groq rate limit hit (attempt $attempt), retrying in {$wait}s...");
+            sleep((int) $wait);
+            continue;
+        }
+
+        if ($httpCode !== 200) {
+            $errMsg = $response['error']['message'] ?? 'HTTP ' . $httpCode;
+            $failedGen = $response['failed_generation'] ?? null;
+            error_log('Groq API error (' . $httpCode . '): ' . $errMsg . ($failedGen ? ' | failed_generation: ' . $failedGen : ''));
+            return ['error' => ['message' => $errMsg, 'failed_generation' => $failedGen]];
+        }
+
+        return $response;
     }
 
-    $response = json_decode($raw, true);
-
-    if ($httpCode !== 200) {
-        $errMsg = $response['error']['message'] ?? 'HTTP ' . $httpCode;
-        $failedGen = $response['failed_generation'] ?? null;
-        error_log('Groq API error (' . $httpCode . '): ' . $errMsg . ($failedGen ? ' | failed_generation: ' . $failedGen : ''));
-        return ['error' => ['message' => $errMsg, 'failed_generation' => $failedGen]];
-    }
-
-    return $response;
+    return ['error' => ['message' => 'Rate limit exceeded. Please try again in a moment.']];
 }
 
 // Execute tool calls
