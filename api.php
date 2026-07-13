@@ -58,117 +58,142 @@ $stmt = $db->prepare("SELECT role, content FROM chat_history ORDER BY created_at
 $stmt->execute([CHAT_CONTEXT_LIMIT]);
 $history = $stmt->fetchAll();
 
-$contents = [];
-foreach ($history as $msg) {
-    $contents[] = [
-        'role' => $msg['role'] === 'assistant' ? 'model' : 'user',
-        'parts' => [['text' => $msg['content']]]
-    ];
-}
+// System message
+$system_message = "You are a personal virtual assistant. You help with tasks, goals, reminders, Gmail inbox management, and general conversation. Be concise and helpful. When the user asks you to do something that matches a tool, use the tool. Always respond in a natural, conversational way after getting tool results. Don't mention tool names or technical details to the user.";
 
-// System instruction
-$system_instruction = [
-    'parts' => [['text' => "You are a personal virtual assistant. You help with tasks, goals, reminders, Gmail inbox management, and general conversation. Be concise and helpful. When the user asks you to do something that matches a tool, use the tool. Always respond in a natural, conversational way after getting tool results. Don't mention tool names or technical details to the user."]]
-];
-
-// Tool definitions
+// Tool definitions (OpenAI format)
 $tools = [
-    'function_declarations' => [
-        [
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'add_task',
             'description' => 'Add a new task with a title, optional priority (low/medium/high), and optional due date.',
             'parameters' => [
-                'type' => 'OBJECT',
+                'type' => 'object',
                 'properties' => [
-                    'title' => ['type' => 'STRING', 'description' => 'Task title'],
-                    'priority' => ['type' => 'STRING', 'description' => 'Priority level', 'enum' => ['low', 'medium', 'high']],
-                    'due_date' => ['type' => 'STRING', 'description' => 'Due date in YYYY-MM-DD format'],
+                    'title' => ['type' => 'string', 'description' => 'Task title'],
+                    'priority' => ['type' => 'string', 'description' => 'Priority level', 'enum' => ['low', 'medium', 'high']],
+                    'due_date' => ['type' => 'string', 'description' => 'Due date in YYYY-MM-DD format'],
                 ],
                 'required' => ['title'],
             ],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'list_tasks',
             'description' => 'List open tasks sorted by priority then due date.',
+            'parameters' => ['type' => 'object', 'properties' => (object)[]],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'complete_task',
             'description' => 'Mark a task as done. Match by title or ID.',
             'parameters' => [
-                'type' => 'OBJECT',
+                'type' => 'object',
                 'properties' => [
-                    'task_id' => ['type' => 'INTEGER', 'description' => 'Task ID'],
-                    'title' => ['type' => 'STRING', 'description' => 'Task title to match (partial match)'],
+                    'task_id' => ['type' => 'integer', 'description' => 'Task ID'],
+                    'title' => ['type' => 'string', 'description' => 'Task title to match (partial match)'],
                 ],
             ],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'add_goal',
             'description' => 'Add a new goal with a title and optional target date.',
             'parameters' => [
-                'type' => 'OBJECT',
+                'type' => 'object',
                 'properties' => [
-                    'title' => ['type' => 'STRING', 'description' => 'Goal title'],
-                    'target_date' => ['type' => 'STRING', 'description' => 'Target date in YYYY-MM-DD format'],
+                    'title' => ['type' => 'string', 'description' => 'Goal title'],
+                    'target_date' => ['type' => 'string', 'description' => 'Target date in YYYY-MM-DD format'],
                 ],
                 'required' => ['title'],
             ],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'list_goals',
             'description' => 'List all active goals.',
+            'parameters' => ['type' => 'object', 'properties' => (object)[]],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'update_goal_progress',
             'description' => 'Add a progress note to an existing goal. Appends to the running log.',
             'parameters' => [
-                'type' => 'OBJECT',
+                'type' => 'object',
                 'properties' => [
-                    'goal_id' => ['type' => 'INTEGER', 'description' => 'Goal ID'],
-                    'title' => ['type' => 'STRING', 'description' => 'Goal title to match (partial match)'],
-                    'note' => ['type' => 'STRING', 'description' => 'Progress note to add'],
+                    'goal_id' => ['type' => 'integer', 'description' => 'Goal ID'],
+                    'title' => ['type' => 'string', 'description' => 'Goal title to match (partial match)'],
+                    'note' => ['type' => 'string', 'description' => 'Progress note to add'],
                 ],
                 'required' => ['note'],
             ],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'add_reminder',
             'description' => 'Add a reminder with a message and specific date/time.',
             'parameters' => [
-                'type' => 'OBJECT',
+                'type' => 'object',
                 'properties' => [
-                    'message' => ['type' => 'STRING', 'description' => 'Reminder message'],
-                    'remind_at' => ['type' => 'STRING', 'description' => 'Date/time in YYYY-MM-DD HH:MM format'],
+                    'message' => ['type' => 'string', 'description' => 'Reminder message'],
+                    'remind_at' => ['type' => 'string', 'description' => 'Date/time in YYYY-MM-DD HH:MM format'],
                 ],
                 'required' => ['message', 'remind_at'],
             ],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'list_upcoming_reminders',
             'description' => 'List upcoming reminders that haven\'t been sent yet.',
+            'parameters' => ['type' => 'object', 'properties' => (object)[]],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'check_inbox',
             'description' => 'Check recent unread emails from Gmail inbox.',
+            'parameters' => ['type' => 'object', 'properties' => (object)[]],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'search_emails',
             'description' => 'Search Gmail inbox with a query (e.g. "from:client subject:logo").',
             'parameters' => [
-                'type' => 'OBJECT',
+                'type' => 'object',
                 'properties' => [
-                    'query' => ['type' => 'STRING', 'description' => 'Gmail search query'],
+                    'query' => ['type' => 'string', 'description' => 'Gmail search query'],
                 ],
                 'required' => ['query'],
             ],
         ],
-        [
+    ],
+    [
+        'type' => 'function',
+        'function' => [
             'name' => 'summarize_email',
             'description' => 'Get the full content/summary of a specific email by ID.',
             'parameters' => [
-                'type' => 'OBJECT',
+                'type' => 'object',
                 'properties' => [
-                    'email_id' => ['type' => 'STRING', 'description' => 'Gmail message ID'],
+                    'email_id' => ['type' => 'string', 'description' => 'Gmail message ID'],
                 ],
                 'required' => ['email_id'],
             ],
@@ -176,34 +201,39 @@ $tools = [
     ],
 ];
 
-// Call Gemini API
-function call_gemini($contents, $system_instruction, $tools = null, $tool_response = null) {
+// Build messages array (OpenAI format)
+$messages = [
+    ['role' => 'system', 'content' => $system_message],
+];
+foreach ($history as $msg) {
+    $messages[] = [
+        'role' => $msg['role'] === 'assistant' ? 'assistant' : 'user',
+        'content' => $msg['content'],
+    ];
+}
+
+// Call Groq API (OpenAI-compatible)
+function call_groq($messages, $tools = null) {
     $body = [
-        'contents' => $contents,
-        'systemInstruction' => $system_instruction,
-        'generationConfig' => [
-            'temperature' => 0.7,
-            'maxOutputTokens' => 2048,
-        ],
+        'model' => GROQ_MODEL,
+        'messages' => $messages,
+        'temperature' => 0.7,
+        'max_tokens' => 2048,
     ];
 
     if ($tools) {
         $body['tools'] = $tools;
+        $body['tool_choice'] = 'auto';
     }
 
-    if ($tool_response) {
-        $body['toolConfig'] = [
-            'functionCallingConfig' => [
-                'mode' => 'NONE',
-            ],
-        ];
-    }
-
-    $ch = curl_init(GEMINI_API_URL);
+    $ch = curl_init(GROQ_API_URL);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . GROQ_API_KEY,
+        ],
         CURLOPT_POSTFIELDS => json_encode($body),
         CURLOPT_TIMEOUT => 30,
     ]);
@@ -213,7 +243,7 @@ function call_gemini($contents, $system_instruction, $tools = null, $tool_respon
     curl_close($ch);
 
     if ($raw === false) {
-        error_log('Gemini curl error: ' . $curlError);
+        error_log('Groq curl error: ' . $curlError);
         return ['error' => ['message' => 'Curl failed: ' . $curlError]];
     }
 
@@ -221,7 +251,7 @@ function call_gemini($contents, $system_instruction, $tools = null, $tool_respon
 
     if ($httpCode !== 200) {
         $errMsg = $response['error']['message'] ?? 'HTTP ' . $httpCode;
-        error_log('Gemini API error (' . $httpCode . '): ' . $errMsg);
+        error_log('Groq API error (' . $httpCode . '): ' . $errMsg);
         return ['error' => ['message' => $errMsg]];
     }
 
@@ -351,55 +381,42 @@ function execute_tool($name, $args) {
 // Multi-turn function calling loop
 $max_turns = 5;
 for ($turn = 0; $turn < $max_turns; $turn++) {
-    $response = call_gemini($contents, $system_instruction, $tools);
+    $response = call_groq($messages, $tools);
 
     if (isset($response['error'])) {
         $reply = 'API error: ' . ($response['error']['message'] ?? json_encode($response['error']));
         break;
     }
 
-    if (!isset($response['candidates'][0]['content']['parts'])) {
+    $choice = $response['choices'][0] ?? null;
+    if (!$choice) {
         $reply = 'I had trouble processing that. Could you try again?';
         break;
     }
 
-    $candidate = $response['candidates'][0];
-    $parts = $candidate['content']['parts'];
+    $assistant_message = $choice['message'];
 
-    // Check for function calls
-    $function_calls = [];
-    foreach ($parts as $part) {
-        if (isset($part['functionCall'])) {
-            $function_calls[] = $part['functionCall'];
-        }
-    }
-
-    if (empty($function_calls)) {
-        // Pure text response
-        $reply = $parts[0]['text'] ?? 'No response generated.';
+    // No tool calls — pure text response
+    if (empty($assistant_message['tool_calls'])) {
+        $reply = $assistant_message['content'] ?? 'No response generated.';
         break;
     }
 
-    // Execute function calls and build tool response
-    $tool_parts = [];
-    foreach ($function_calls as $fc) {
-        $name = $fc['name'];
-        $args = $fc['args'] ?? [];
-        $result = execute_tool($name, $args);
-        $tool_parts[] = [
-            'functionResponse' => [
-                'name' => $name,
-                'response' => ['result' => $result],
-            ],
+    // Add assistant message with tool calls to conversation
+    $messages[] = $assistant_message;
+
+    // Execute each tool call and add results
+    foreach ($assistant_message['tool_calls'] as $tc) {
+        $function_name = $tc['function']['name'];
+        $function_args = json_decode($tc['function']['arguments'], true) ?? [];
+        $result = execute_tool($function_name, $function_args);
+
+        $messages[] = [
+            'role' => 'tool',
+            'tool_call_id' => $tc['id'],
+            'content' => (string) $result,
         ];
     }
-
-    // Add model's function call and tool response to contents
-    $contents[] = $candidate['content'];
-    $contents[] = [
-        'role' => 'user',
-        'parts' => $tool_parts,
-    ];
 }
 
 // Save assistant reply

@@ -5,10 +5,10 @@ define('DB_NAME', 'your_database_name');
 define('DB_USER', 'your_db_user');
 define('DB_PASS', 'your_db_password');
 
-// === Gemini API ===
-define('GEMINI_API_KEY', 'YOUR_GEMINI_API_KEY_HERE');
-define('GEMINI_MODEL', 'gemini-2.5-flash');
-define('GEMINI_API_URL', 'https://generativelanguage.googleapis.com/v1beta/models/' . GEMINI_MODEL . ':generateContent?key=' . GEMINI_API_KEY);
+// === Groq API (OpenAI-compatible) ===
+define('GROQ_API_KEY', 'YOUR_GROQ_API_KEY_HERE');
+define('GROQ_MODEL', 'llama-3.3-70b-versatile');
+define('GROQ_API_URL', 'https://api.groq.com/openai/v1/chat/completions');
 
 // === Login ===
 // Generate with: password_hash('your_password', PASSWORD_BCRYPT)
