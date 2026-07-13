@@ -90,10 +90,6 @@ $tools = [
         [
             'name' => 'list_tasks',
             'description' => 'List open tasks sorted by priority then due date.',
-            'parameters' => [
-                'type' => 'OBJECT',
-                'properties' => [],
-            ],
         ],
         [
             'name' => 'complete_task',
@@ -121,10 +117,6 @@ $tools = [
         [
             'name' => 'list_goals',
             'description' => 'List all active goals.',
-            'parameters' => [
-                'type' => 'OBJECT',
-                'properties' => [],
-            ],
         ],
         [
             'name' => 'update_goal_progress',
@@ -154,18 +146,10 @@ $tools = [
         [
             'name' => 'list_upcoming_reminders',
             'description' => 'List upcoming reminders that haven\'t been sent yet.',
-            'parameters' => [
-                'type' => 'OBJECT',
-                'properties' => [],
-            ],
         ],
         [
             'name' => 'check_inbox',
             'description' => 'Check recent unread emails from Gmail inbox.',
-            'parameters' => [
-                'type' => 'OBJECT',
-                'properties' => [],
-            ],
         ],
         [
             'name' => 'search_emails',
