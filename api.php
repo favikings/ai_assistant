@@ -402,7 +402,26 @@ for ($turn = 0; $turn < $max_turns; $turn++) {
 
     // No tool calls — pure text response
     if (empty($assistant_message['tool_calls'])) {
-        $reply = $assistant_message['content'] ?? 'No response generated.';
+        $content = $assistant_message['content'] ?? '';
+
+        // Fallback: Llama sometimes outputs function calls as plain text
+        // Pattern: <function=name>{"arg": "val"}</function> or similar
+        if (preg_match_all('/<function=(\w+)>(.*?)<\/function>/s', $content, $matches)) {
+            $messages[] = ['role' => 'assistant', 'content' => ''];
+            for ($i = 0; $i < count($matches[1]); $i++) {
+                $fn_name = $matches[1][$i];
+                $fn_args = json_decode(trim($matches[2][$i]), true) ?? [];
+                $result = execute_tool($fn_name, $fn_args);
+                $messages[] = [
+                    'role' => 'tool',
+                    'tool_call_id' => 'fallback_' . $i,
+                    'content' => (string) $result,
+                ];
+            }
+            continue; // loop again for a natural text response
+        }
+
+        $reply = $content ?: 'No response generated.';
         break;
     }
 
