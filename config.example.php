@@ -7,7 +7,7 @@ define('DB_PASS', 'your_db_password');
 
 // === Gemini API ===
 define('GEMINI_API_KEY', 'YOUR_GEMINI_API_KEY_HERE');
-define('GEMINI_MODEL', 'gemini-2.0-flash');
+define('GEMINI_MODEL', 'gemini-2.5-flash');
 define('GEMINI_API_URL', 'https://generativelanguage.googleapis.com/v1beta/models/' . GEMINI_MODEL . ':generateContent?key=' . GEMINI_API_KEY);
 
 // === Login ===
